@@ -4,3 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+inquire = "0.9"
+chrono = "0.4.44"
+rusqlite = "0.38"
+thiserror = "2"
+
+[dev-dependencies]
+trycmd = "1.0.1"
+mockall = "0.13"
