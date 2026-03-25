@@ -54,7 +54,7 @@ This means `map_err`, `Err(_) =>` match arms, `unwrap_or_else`, `.ok()` — any 
 
 ## Cascading failures are by design
 
-When a small intentional change (e.g. changing a trait signature) causes many tests or compile errors to fail, **that is expected and correct**. It means the change is right and downstream callers need to be updated. Do NOT "fix" the failures by reverting the change or adding workarounds.
+When a small intentional change (e.g. changing a trait signature) causes many tests or compile errors to fail, **that is expected and correct**. It means the change is right and downstream callers need to be updated. Do NOT "fix" the failures by reverting the change or adding workarounds or unsolicited fallback behavior.
 
 Instead: **stop, show the user the failures, and ask what to do next.**
 
