@@ -1,12 +1,14 @@
-# Design: Clean out old Claude Code files
+# Design: Fix OpenCode configuration
 
 ## Problem
 
-The project migrated from Claude Code to OpenCode but left behind broken configuration:
+The project migrated from Claude Code to OpenCode but the configuration is broken for OpenCode:
 - `CLAUDE.md` points to `.claude/rules/` and `.claude/feedback/`, which don't exist (they were copied to `.opencode/`)
 - `OPENCODE.md` has no special meaning to OpenCode
-- `.claude/` directory still exists in the repo
-- No `AGENTS.md` (OpenCode's primary instruction file) exists
+- No `AGENTS.md` exists (OpenCode's primary instruction file)
+- No `opencode.json` exists to load external instruction files
+
+The leftover `.claude/` directory is a secondary symptom — the real issue is that OpenCode can't find or use any of the project's rules.
 
 ## Design
 
@@ -23,7 +25,7 @@ Use the `instructions` field to eagerly load all rule and feedback files:
 ```
 
 ### Delete obsolete files
-- `CLAUDE.md` — broken fallback
+- `CLAUDE.md` — broken fallback, wrong paths
 - `OPENCODE.md` — not recognized by OpenCode
 - `.claude/` — old directory, already copied to `.opencode/`
 
