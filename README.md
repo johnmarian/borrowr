@@ -25,7 +25,7 @@ I'm also very forgetful and just needed a utility to remember who borrowed my ta
 
 - Rust
 - SQLite
-- OpenCode
+- llama.cpp + Qwen3.6-35B-A3B (local model, [unsloth/Qwen3.6-35B-A3B-GGUF](https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF))
 
 ## Lessons Learned
 
