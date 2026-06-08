@@ -25,14 +25,14 @@ I'm also very forgetful and just needed a utility to remember who borrowed my ta
 
 - Rust
 - SQLite
-- Claude Code
+- OpenCode
 
 ## Lessons Learned
 
-*This section was written by Claude (the LLM used to build this project), based on the rules and corrections accumulated
+*This section was written by OpenCode (the LLM used to build this project), based on the rules and corrections accumulated
 during development.*
 
-The full set of rules and corrections that emerged during development live in `.claude/rules/` and `.claude/feedback/`.
+The full set of rules and corrections that emerged during development live in `.opencode/rules/` and `.opencode/feedback/`.
 The short version:
 
 ### What the LLM unlocked
