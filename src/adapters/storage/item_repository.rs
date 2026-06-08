@@ -4,17 +4,28 @@ use crate::domain::item::{Item, ItemId};
 use crate::ports::item_repository::ItemRepository;
 use rusqlite::Connection;
 
-pub struct SqliteItemRepository<'a> {
-    conn: &'a Connection,
+pub struct SqliteItemRepository {
+    conn: Connection,
 }
 
-impl<'a> SqliteItemRepository<'a> {
-    pub fn new(conn: &'a Connection) -> Self {
-        Self { conn }
+impl std::fmt::Debug for SqliteItemRepository {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SqliteItemRepository")
     }
 }
 
-impl<'a> ItemRepository for SqliteItemRepository<'a> {
+impl SqliteItemRepository {
+    pub fn new(conn: Connection) -> Self {
+        Self { conn }
+    }
+
+    #[cfg(test)]
+    pub fn conn(&self) -> &Connection {
+        &self.conn
+    }
+}
+
+impl ItemRepository for SqliteItemRepository {
     fn add(&self, command: &AddItemCommand) -> Result<ItemId, DomainError> {
         self.conn
             .execute(
@@ -96,7 +107,7 @@ mod tests {
     #[test]
     fn add_returns_item_save_failed_on_sql_error() {
         let conn = Connection::open_in_memory().unwrap();
-        let repo = SqliteItemRepository::new(&conn);
+        let repo = SqliteItemRepository::new(conn);
         assert!(matches!(
             repo.add(&AddItemCommand {
                 description: "Hammer".to_string()
@@ -108,7 +119,7 @@ mod tests {
     #[test]
     fn update_returns_item_update_failed_on_sql_error() {
         let conn = Connection::open_in_memory().unwrap();
-        let repo = SqliteItemRepository::new(&conn);
+        let repo = SqliteItemRepository::new(conn);
         assert!(matches!(
             repo.update(&UpdateItemCommand {
                 id: ItemId::new("1"),
@@ -121,7 +132,7 @@ mod tests {
     #[test]
     fn find_by_id_returns_item_load_failed_on_sql_error() {
         let conn = Connection::open_in_memory().unwrap();
-        let repo = SqliteItemRepository::new(&conn);
+        let repo = SqliteItemRepository::new(conn);
         assert!(matches!(
             repo.find_by_id(&ItemId::new("1")),
             Err(DomainError::ItemLoadFailed)
@@ -131,14 +142,14 @@ mod tests {
     #[test]
     fn find_all_returns_item_load_failed_on_sql_error() {
         let conn = Connection::open_in_memory().unwrap();
-        let repo = SqliteItemRepository::new(&conn);
+        let repo = SqliteItemRepository::new(conn);
         assert!(matches!(repo.find_all(), Err(DomainError::ItemLoadFailed)));
     }
 
     #[test]
     fn remove_returns_item_delete_failed_on_sql_error() {
         let conn = Connection::open_in_memory().unwrap();
-        let repo = SqliteItemRepository::new(&conn);
+        let repo = SqliteItemRepository::new(conn);
         assert!(matches!(
             repo.remove(&ItemId::new("1")),
             Err(DomainError::ItemDeleteFailed)
@@ -148,13 +159,14 @@ mod tests {
     #[test]
     fn add_inserts_item_into_db() {
         let conn = setup_conn();
-        let repo = SqliteItemRepository::new(&conn);
+        let repo = SqliteItemRepository::new(conn);
         let id = repo
             .add(&AddItemCommand {
                 description: "Hammer".to_string(),
             })
             .unwrap();
-        let description: String = conn
+        let description: String = repo
+            .conn()
             .query_row(
                 "SELECT description FROM items WHERE id = ?1",
                 [id.value()],
@@ -167,11 +179,9 @@ mod tests {
     #[test]
     fn find_by_id_returns_matching_item() {
         let conn = setup_conn();
-        conn.execute("INSERT INTO items (description) VALUES (?1)", ["Hammer"])
-            .unwrap();
-        conn.execute("INSERT INTO items (description) VALUES (?1)", ["Drill"])
-            .unwrap();
-        let repo = SqliteItemRepository::new(&conn);
+        conn.execute("INSERT INTO items (description) VALUES (?1)", ["Hammer"]).unwrap();
+        conn.execute("INSERT INTO items (description) VALUES (?1)", ["Drill"]).unwrap();
+        let repo = SqliteItemRepository::new(conn);
 
         let item = repo.find_by_id(&ItemId::new("2")).unwrap();
         assert_eq!(item.id.value(), "2");
@@ -181,7 +191,7 @@ mod tests {
     #[test]
     fn find_by_id_returns_item_not_found_when_missing() {
         let conn = setup_conn();
-        let repo = SqliteItemRepository::new(&conn);
+        let repo = SqliteItemRepository::new(conn);
         assert!(matches!(
             repo.find_by_id(&ItemId::new("99")),
             Err(DomainError::ItemNotFound)
@@ -191,11 +201,9 @@ mod tests {
     #[test]
     fn find_all_returns_all_items() {
         let conn = setup_conn();
-        conn.execute("INSERT INTO items (description) VALUES (?1)", ["Hammer"])
-            .unwrap();
-        conn.execute("INSERT INTO items (description) VALUES (?1)", ["Drill"])
-            .unwrap();
-        let repo = SqliteItemRepository::new(&conn);
+        conn.execute("INSERT INTO items (description) VALUES (?1)", ["Hammer"]).unwrap();
+        conn.execute("INSERT INTO items (description) VALUES (?1)", ["Drill"]).unwrap();
+        let repo = SqliteItemRepository::new(conn);
 
         let items = repo.find_all().unwrap();
         let pairs: Vec<(&str, &str)> = items
@@ -212,14 +220,15 @@ mod tests {
         let conn = setup_conn();
         conn.execute("INSERT INTO items (description) VALUES (?1)", ["Hammer"])
             .unwrap();
-        let repo = SqliteItemRepository::new(&conn);
+        let repo = SqliteItemRepository::new(conn);
 
         repo.update(&UpdateItemCommand {
             id: ItemId::new("1"),
             description: "Sledgehammer".to_string(),
         })
         .unwrap();
-        let description: String = conn
+        let description: String = repo
+            .conn()
             .query_row("SELECT description FROM items WHERE id = 1", [], |row| {
                 row.get(0)
             })
@@ -232,10 +241,11 @@ mod tests {
         let conn = setup_conn();
         conn.execute("INSERT INTO items (description) VALUES (?1)", ["Hammer"])
             .unwrap();
-        let repo = SqliteItemRepository::new(&conn);
+        let repo = SqliteItemRepository::new(conn);
 
         repo.remove(&ItemId::new("1")).unwrap();
-        let count: i64 = conn
+        let count: i64 = repo
+            .conn()
             .query_row("SELECT COUNT(*) FROM items WHERE id = 1", [], |row| {
                 row.get(0)
             })

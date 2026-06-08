@@ -37,9 +37,9 @@ fn main() {
         )
         .expect("failed to initialize schema");
 
-    let item_repo = SqliteItemRepository::new(&item_conn);
-    let person_repo = SqlitePersonRepository::new(&person_conn);
-    let loan_repo = SqliteLoanRepository::new(&loan_conn);
+    let item_repo = SqliteItemRepository::new(item_conn);
+    let person_repo = SqlitePersonRepository::new(person_conn);
+    let loan_repo = SqliteLoanRepository::new(loan_conn);
     if let Err(e) = borrowr::adapters::cli::run(&borrowr::adapters::cli::Ctx::new(
         &item_repo,
         &person_repo,

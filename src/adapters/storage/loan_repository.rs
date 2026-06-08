@@ -6,17 +6,28 @@ use crate::queries::loans::LoanView;
 use chrono::NaiveDate;
 use rusqlite::Connection;
 
-pub struct SqliteLoanRepository<'a> {
-    conn: &'a Connection,
+pub struct SqliteLoanRepository {
+    conn: Connection,
 }
 
-impl<'a> SqliteLoanRepository<'a> {
-    pub fn new(conn: &'a Connection) -> Self {
-        Self { conn }
+impl std::fmt::Debug for SqliteLoanRepository {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SqliteLoanRepository")
     }
 }
 
-impl<'a> LoanRepository for SqliteLoanRepository<'a> {
+impl SqliteLoanRepository {
+    pub fn new(conn: Connection) -> Self {
+        Self { conn }
+    }
+
+    #[cfg(test)]
+    pub fn conn(&self) -> &Connection {
+        &self.conn
+    }
+}
+
+impl LoanRepository for SqliteLoanRepository {
     fn lend(&self, command: &LendItemCommand) -> Result<LoanId, DomainError> {
         self.conn.execute(
             "INSERT INTO loans (person_id, item_id, direction, loan_date) VALUES (?1, ?2, 'lend', ?3)",
@@ -164,7 +175,7 @@ mod tests {
     #[test]
     fn find_active_returns_lend_loan_view_with_description_and_name() {
         let conn = setup_conn();
-        let repo = SqliteLoanRepository::new(&conn);
+        let repo = SqliteLoanRepository::new(conn);
         let loan_date = NaiveDate::from_ymd_opt(2026, 3, 24).unwrap();
 
         repo.lend(&LendItemCommand {
@@ -186,7 +197,7 @@ mod tests {
     #[test]
     fn find_active_returns_borrow_loan_view_with_description_and_name() {
         let conn = setup_conn();
-        let repo = SqliteLoanRepository::new(&conn);
+        let repo = SqliteLoanRepository::new(conn);
         let loan_date = NaiveDate::from_ymd_opt(2026, 3, 24).unwrap();
 
         repo.borrow(&BorrowItemCommand {
@@ -208,7 +219,7 @@ mod tests {
     #[test]
     fn lend_returns_loan_save_failed_on_sql_error() {
         let conn = Connection::open_in_memory().unwrap();
-        let repo = SqliteLoanRepository::new(&conn);
+        let repo = SqliteLoanRepository::new(conn);
         assert!(matches!(
             repo.lend(&LendItemCommand {
                 person_id: crate::domain::person::PersonId::new("1"),
@@ -222,7 +233,7 @@ mod tests {
     #[test]
     fn borrow_returns_loan_save_failed_on_sql_error() {
         let conn = Connection::open_in_memory().unwrap();
-        let repo = SqliteLoanRepository::new(&conn);
+        let repo = SqliteLoanRepository::new(conn);
         assert!(matches!(
             repo.borrow(&BorrowItemCommand {
                 person_id: crate::domain::person::PersonId::new("1"),
@@ -236,7 +247,7 @@ mod tests {
     #[test]
     fn return_item_returns_loan_update_failed_on_sql_error() {
         let conn = Connection::open_in_memory().unwrap();
-        let repo = SqliteLoanRepository::new(&conn);
+        let repo = SqliteLoanRepository::new(conn);
         assert!(matches!(
             repo.return_item(&ReturnItemCommand {
                 loan_id: LoanId::new("1"),
@@ -249,7 +260,7 @@ mod tests {
     #[test]
     fn find_active_returns_loan_load_failed_on_sql_error() {
         let conn = Connection::open_in_memory().unwrap();
-        let repo = SqliteLoanRepository::new(&conn);
+        let repo = SqliteLoanRepository::new(conn);
         assert!(matches!(
             repo.find_active(),
             Err(DomainError::LoanLoadFailed)
@@ -259,7 +270,7 @@ mod tests {
     #[test]
     fn lend_inserts_loan_into_db() {
         let conn = setup_conn();
-        let repo = SqliteLoanRepository::new(&conn);
+        let repo = SqliteLoanRepository::new(conn);
         let loan_date = NaiveDate::from_ymd_opt(2026, 3, 23).unwrap();
 
         let id = repo
@@ -270,7 +281,8 @@ mod tests {
             })
             .unwrap();
 
-        let (direction, stored_date, return_date): (String, String, Option<String>) = conn
+        let (direction, stored_date, return_date): (String, String, Option<String>) = repo
+            .conn()
             .query_row(
                 "SELECT direction, loan_date, return_date FROM loans WHERE id = ?1",
                 [id.value()],
@@ -285,7 +297,7 @@ mod tests {
     #[test]
     fn borrow_inserts_loan_with_borrow_direction() {
         let conn = setup_conn();
-        let repo = SqliteLoanRepository::new(&conn);
+        let repo = SqliteLoanRepository::new(conn);
         let loan_date = NaiveDate::from_ymd_opt(2026, 3, 23).unwrap();
 
         let id = repo
@@ -296,7 +308,8 @@ mod tests {
             })
             .unwrap();
 
-        let direction: String = conn
+        let direction: String = repo
+            .conn()
             .query_row(
                 "SELECT direction FROM loans WHERE id = ?1",
                 [id.value()],
@@ -309,7 +322,7 @@ mod tests {
     #[test]
     fn return_item_sets_return_date() {
         let conn = setup_conn();
-        let repo = SqliteLoanRepository::new(&conn);
+        let repo = SqliteLoanRepository::new(conn);
         let loan_date = NaiveDate::from_ymd_opt(2026, 3, 23).unwrap();
         let return_date = NaiveDate::from_ymd_opt(2026, 3, 30).unwrap();
 
@@ -326,7 +339,8 @@ mod tests {
         })
         .unwrap();
 
-        let stored_return_date: String = conn
+        let stored_return_date: String = repo
+            .conn()
             .query_row(
                 "SELECT return_date FROM loans WHERE id = ?1",
                 [id.value()],
@@ -339,7 +353,7 @@ mod tests {
     #[test]
     fn find_active_excludes_returned_loans() {
         let conn = setup_conn();
-        let repo = SqliteLoanRepository::new(&conn);
+        let repo = SqliteLoanRepository::new(conn);
         let loan_date = NaiveDate::from_ymd_opt(2026, 3, 23).unwrap();
         let return_date = NaiveDate::from_ymd_opt(2026, 3, 30).unwrap();
 
@@ -366,7 +380,7 @@ mod tests {
             "INSERT INTO loans (person_id, item_id, direction, loan_date) VALUES (1, 1, 'invalid', '2026-03-23')",
             [],
         ).unwrap();
-        let repo = SqliteLoanRepository::new(&conn);
+        let repo = SqliteLoanRepository::new(conn);
         assert!(matches!(repo.find_active(), Err(DomainError::InvalidData)));
     }
 
@@ -377,7 +391,7 @@ mod tests {
             "INSERT INTO loans (person_id, item_id, direction, loan_date) VALUES (1, 1, 'lend', 'not-a-date')",
             [],
         ).unwrap();
-        let repo = SqliteLoanRepository::new(&conn);
+        let repo = SqliteLoanRepository::new(conn);
         assert!(matches!(repo.find_active(), Err(DomainError::InvalidData)));
     }
 }

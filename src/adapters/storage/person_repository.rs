@@ -4,17 +4,28 @@ use crate::domain::person::{Person, PersonId};
 use crate::ports::person_repository::PersonRepository;
 use rusqlite::Connection;
 
-pub struct SqlitePersonRepository<'a> {
-    conn: &'a Connection,
+pub struct SqlitePersonRepository {
+    conn: Connection,
 }
 
-impl<'a> SqlitePersonRepository<'a> {
-    pub fn new(conn: &'a Connection) -> Self {
-        Self { conn }
+impl std::fmt::Debug for SqlitePersonRepository {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SqlitePersonRepository")
     }
 }
 
-impl<'a> PersonRepository for SqlitePersonRepository<'a> {
+impl SqlitePersonRepository {
+    pub fn new(conn: Connection) -> Self {
+        Self { conn }
+    }
+
+    #[cfg(test)]
+    pub fn conn(&self) -> &Connection {
+        &self.conn
+    }
+}
+
+impl PersonRepository for SqlitePersonRepository {
     fn add(&self, command: &AddPersonCommand) -> Result<PersonId, DomainError> {
         self.conn
             .execute("INSERT INTO people (name) VALUES (?1)", [&command.name])
@@ -91,7 +102,7 @@ mod tests {
     #[test]
     fn add_returns_person_save_failed_on_sql_error() {
         let conn = Connection::open_in_memory().unwrap();
-        let repo = SqlitePersonRepository::new(&conn);
+        let repo = SqlitePersonRepository::new(conn);
         assert!(matches!(
             repo.add(&AddPersonCommand {
                 name: "Alice".to_string()
@@ -103,7 +114,7 @@ mod tests {
     #[test]
     fn update_returns_person_update_failed_on_sql_error() {
         let conn = Connection::open_in_memory().unwrap();
-        let repo = SqlitePersonRepository::new(&conn);
+        let repo = SqlitePersonRepository::new(conn);
         assert!(matches!(
             repo.update(&UpdatePersonCommand {
                 id: PersonId::new("1"),
@@ -116,7 +127,7 @@ mod tests {
     #[test]
     fn find_by_id_returns_person_load_failed_on_sql_error() {
         let conn = Connection::open_in_memory().unwrap();
-        let repo = SqlitePersonRepository::new(&conn);
+        let repo = SqlitePersonRepository::new(conn);
         assert!(matches!(
             repo.find_by_id(&PersonId::new("1")),
             Err(DomainError::PersonLoadFailed)
@@ -126,7 +137,7 @@ mod tests {
     #[test]
     fn find_all_returns_person_load_failed_on_sql_error() {
         let conn = Connection::open_in_memory().unwrap();
-        let repo = SqlitePersonRepository::new(&conn);
+        let repo = SqlitePersonRepository::new(conn);
         assert!(matches!(
             repo.find_all(),
             Err(DomainError::PersonLoadFailed)
@@ -136,7 +147,7 @@ mod tests {
     #[test]
     fn remove_returns_person_delete_failed_on_sql_error() {
         let conn = Connection::open_in_memory().unwrap();
-        let repo = SqlitePersonRepository::new(&conn);
+        let repo = SqlitePersonRepository::new(conn);
         assert!(matches!(
             repo.remove(&PersonId::new("1")),
             Err(DomainError::PersonDeleteFailed)
@@ -146,13 +157,14 @@ mod tests {
     #[test]
     fn add_inserts_person_into_db() {
         let conn = setup_conn();
-        let repo = SqlitePersonRepository::new(&conn);
+        let repo = SqlitePersonRepository::new(conn);
         let id = repo
             .add(&AddPersonCommand {
                 name: "Alice".to_string(),
             })
             .unwrap();
-        let name: String = conn
+        let name: String = repo
+            .conn()
             .query_row(
                 "SELECT name FROM people WHERE id = ?1",
                 [id.value()],
@@ -169,7 +181,7 @@ mod tests {
             .unwrap();
         conn.execute("INSERT INTO people (name) VALUES (?1)", ["Bob"])
             .unwrap();
-        let repo = SqlitePersonRepository::new(&conn);
+        let repo = SqlitePersonRepository::new(conn);
 
         let person = repo.find_by_id(&PersonId::new("2")).unwrap();
         assert_eq!(person.id.value(), "2");
@@ -179,7 +191,7 @@ mod tests {
     #[test]
     fn find_by_id_returns_person_not_found_when_missing() {
         let conn = setup_conn();
-        let repo = SqlitePersonRepository::new(&conn);
+        let repo = SqlitePersonRepository::new(conn);
         assert!(matches!(
             repo.find_by_id(&PersonId::new("99")),
             Err(DomainError::PersonNotFound)
@@ -193,7 +205,7 @@ mod tests {
             .unwrap();
         conn.execute("INSERT INTO people (name) VALUES (?1)", ["Bob"])
             .unwrap();
-        let repo = SqlitePersonRepository::new(&conn);
+        let repo = SqlitePersonRepository::new(conn);
 
         let people = repo.find_all().unwrap();
         let pairs: Vec<(&str, &str)> = people
@@ -210,14 +222,15 @@ mod tests {
         let conn = setup_conn();
         conn.execute("INSERT INTO people (name) VALUES (?1)", ["Alice"])
             .unwrap();
-        let repo = SqlitePersonRepository::new(&conn);
+        let repo = SqlitePersonRepository::new(conn);
 
         repo.update(&UpdatePersonCommand {
             id: PersonId::new("1"),
             name: "Alicia".to_string(),
         })
         .unwrap();
-        let name: String = conn
+        let name: String = repo
+            .conn()
             .query_row("SELECT name FROM people WHERE id = 1", [], |row| row.get(0))
             .unwrap();
         assert_eq!(name, "Alicia");
@@ -228,10 +241,11 @@ mod tests {
         let conn = setup_conn();
         conn.execute("INSERT INTO people (name) VALUES (?1)", ["Alice"])
             .unwrap();
-        let repo = SqlitePersonRepository::new(&conn);
+        let repo = SqlitePersonRepository::new(conn);
 
         repo.remove(&PersonId::new("1")).unwrap();
-        let count: i64 = conn
+        let count: i64 = repo
+            .conn()
             .query_row("SELECT COUNT(*) FROM people WHERE id = 1", [], |row| {
                 row.get(0)
             })

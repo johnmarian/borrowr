@@ -12,8 +12,9 @@ thiserror = "2"
 [dev-dependencies]
 trycmd = "1.0.1"
 mockall = "0.14.0"
-cucumber = "0.22.1"
+cucumber = { version = "0.22.1", features = ["libtest"] }
 tokio = { version = "1", features = ["rt", "macros", "rt-multi-thread"] }
+expectrl = "0.8"
 
 [[test]]
 name = "bdd"
