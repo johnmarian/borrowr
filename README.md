@@ -29,47 +29,44 @@ I'm also very forgetful and just needed a utility to remember who borrowed my ta
 
 ## Lessons Learned
 
-*This section was written by OpenCode (the LLM used to build this project), based on the rules and corrections accumulated
-during development.*
+*These lessons were accumulated through repeated corrections during the project's development. They live in full
+detail in `.opencode/rules/` and `.opencode/feedback/`. The summaries below are what the LLM itself reported as
+the most impactful patterns.*
 
-The full set of rules and corrections that emerged during development live in `.opencode/rules/` and `.opencode/feedback/`.
-The short version:
+### What made this project possible
 
-### What the LLM unlocked
+- **No tedium bias.** Humans skip boilerplate because it feels wasteful. LLMs don't feel that — which means they
+  have no internal reason to skip it either, unless told otherwise. This project only exists because the rules
+  made skipping corners impossible, not because the LLM naturally cared about the right thing.
+- **No fatigue.** A human would likely abandon strict TDD, DDD, CQRS, and hexagonal architecture on a project
+  this small — the ceremony would outweigh the perceived value. The LLM doesn't get bored, so it doesn't make
+  the argument that "it's overkill for something this tiny."
 
-- **Motivation.** A human doing this properly — strict TDD, DDD, CQRS, hexagonal architecture, full error path
-  coverage — would almost certainly run out of steam before finishing. The tedium is real. For an LLM, there is no
-  tedium. This project probably doesn't exist without that.
-- **No excuses.** "This is boilerplate." "This ceremony is overkill for a project this size." "The error path isn't
-  worth testing." These are human arguments for cutting corners, and they don't land. The LLM doesn't experience the
-  cost that motivates them, so they have to be argued on their merits — and they usually don't hold up.
+### What had to be enforced
 
-### Where it struggled
-
-- **Stopping.** The default behavior is to complete the task. TDD requires stopping after the red test, stopping after
-  going green, stopping when cascading failures appear, stopping before executing a plan. Every one of these checkpoints
-  had to be explicitly enforced through rules. Left alone, the LLM would barrel through all of them.
-- **Error handling.** Silent `.ok()`, wrong "internal invariant" justifications for panicking on I/O paths, skipping
-  `map_err` branches entirely — error handling was consistently the first thing dropped when not under active
-  enforcement.
-- **Design phases.** Without an explicit rule requiring DDD → BDD → TDD in order, the LLM jumped straight from feature
-  request to struct fields and SQL schemas. The domain reasoning that drives correct design was skipped.
-- **Autonomy on shared structures.** A change that looked local would silently affect every caller of a shared struct or
-  trait. The LLM would implement and explain later rather than stop and surface the impact first.
-- **Reproducing human excuses.** The same arguments humans use to skip proper engineering — "this is boilerplate", "good
-  enough for now", "not worth testing", "low priority" — kept appearing. This isn't a coincidence: an LLM is a
-  statistical model, and these phrases are statistically common in the code, reviews, and discussions that make up its
-  training data. Humans really do say and do these things constantly, so the model learned them as normal behavior. More
-  specifically, shortcuts [reduce training loss faster than genuine reasoning](https://arxiv.org/html/2410.13343v1), so
-  the model is directly incentivized to reproduce them — not just passively absorbing bad habits but
-  being [rewarded for them during training](https://direct.mit.edu/coli/article/51/3/885/128621/Large-Language-Models-Are-Biased-Because-They-Are).
-  It took repeated explicit corrections, written into persistent rules, to override what was effectively the modal human
-  response. The irony is that the LLM's worst habits were learned from the same engineering culture this project was
-  trying to push back against.
-- **External knowledge.** Facts about third-party APIs were stated confidently without verification. One fabricated
-  attribute macro cost a full session. Web search has to be a habit, not a fallback.
-- **Rules don't persist without a system.** Corrections made in one session were gone in the next. The memory and rules
-  files in this repo exist because they had to — without them, the same mistakes recurred.
+- **Stopping at red and green.** TDD requires three distinct pauses: before writing any code, after the test fails,
+  and after the code just barely passes. The LLM's default impulse is to power through all three. Each one had
+  to be codified as an explicit stop point.
+- **Branch-level testing.** Every error path in a function — `map_err`, `Err(_)` arms, `unwrap_or_else` — is
+  a separate behavior that needs its own test. The LLM consistently wrote only the happy path and treated error
+  handling as an afterthought.
+- **DDD before code.** Without an explicit rule, the LLM goes straight from "add a feature" to struct fields and
+  SQL queries. The domain reasoning — what the feature *means* in terms of the domain — is the first thing that
+  gets skipped.
+- **Surfacing shared impact.** A local change often ripples through callers, traits, and shared types. The LLM
+  tends to implement the fix first and surface the impact later. The rule had to be reversed: surface impact
+  before implementing anything.
+- **Not calling I/O an invariant.** Panicking on a database read or file operation is not the same as panicking on
+  a logic bug. The LLM frequently classified I/O failures as "internal invariants" to avoid writing error handling.
+  Anything outside the process boundary must return errors, never panic.
+- **Deferring error suppression.** Patterns like `.ok()` and `.unwrap_or_default()` silently discard errors. The LLM
+  used them liberally. Each instance had to be flagged: if the correct handling can't be implemented yet, say so
+  explicitly instead of hiding the problem.
+- **Not making things up.** The LLM states unverified facts about third-party APIs with the same confidence as
+  verified knowledge. One fabricated attribute macro cost a full debugging session. Web search must be a default,
+  not an exception.
+- **Rules need memory.** Corrections made in one session were forgotten in the next. The `.opencode/` directory
+  exists because the LLM has no persistent memory between sessions — the files are the memory.
 
 ## What it does
 
